@@ -130,6 +130,49 @@ Example:
 IDS_ENABLE_FALLBACK=1 python backend.py
 ```
 
+## Enabling real-time packet capture (non-root)
+
+The backend uses Scapy's AsyncSniffer which requires raw socket privileges. You can either run the backend with `sudo`, or grant the Python interpreter the `CAP_NET_RAW` and `CAP_NET_ADMIN` capabilities so it can capture packets without full root.
+
+1. Find the Python interpreter used to run the app (for a virtualenv use the venv `python`):
+
+```bash
+which python3
+# or for the workspace venv
+./.venv/bin/python
+```
+
+2. Grant necessary capabilities (requires `sudo`):
+
+```bash
+# replace /usr/bin/python3 with your python path from step 1
+sudo setcap cap_net_raw,cap_net_admin=eip /usr/bin/python3
+```
+
+3. Run the backend without `IDS_ENABLE_FALLBACK` so it uses live capture:
+
+```bash
+IDS_ENABLE_FALLBACK=0 IDS_INTERFACE=<your-iface> sudo python backend.py
+```
+
+Check `/api/health` for `capture_running: true` and `capture_method: scapy`.
+
+## Verifying real-time capture (smoke test)
+
+A small smoke-test script is included at `tests/capture_smoke.py` which sends a burst of ICMP packets and polls the backend `GET /api/stats` to confirm `pps` and `protocols.ICMP` increase.
+
+Usage (while the backend is running with capture enabled):
+
+```bash
+# from repo root
+python tests/capture_smoke.py --url http://127.0.0.1:5000 --target 8.8.8.8 --count 5
+```
+
+Notes:
+- If you prefer not to grant capabilities, run the backend with `sudo` instead.
+- In containerized environments you may need to run the container with `--cap-add=NET_RAW --cap-add=NET_ADMIN`.
+
+
 ## API Endpoints
 
 - `GET /api/health` - backend runtime and log source status.
