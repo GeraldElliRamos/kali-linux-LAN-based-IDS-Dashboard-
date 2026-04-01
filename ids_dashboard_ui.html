@@ -644,7 +644,10 @@ function connectSocket() {
     return;
   }
 
-  const socket = window.io({ transports: ['websocket', 'polling'] });
+  // Use HTTP polling to avoid websocket issues when running with the
+  // development Werkzeug server (no eventlet/gevent). Polling is reliable
+  // for local testing.
+  const socket = window.io({ transports: ['polling'] });
   state.socket = socket;
   socket.on('connect', () => {
     state.connected = true;

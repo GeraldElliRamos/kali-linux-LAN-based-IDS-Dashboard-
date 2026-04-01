@@ -1,42 +1,36 @@
 {
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "Run IDS Backend",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/backend.py",
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "serverReadyAction": {
-                "action": "openExternally",
-                "pattern": "Running on (https?://\\S+)",
-                "uriFormat": "%s"
-            },
-            "env": {
-                "SNORT_ALERT_LOG": "/var/log/snort/alert_fast.log",
-                "IDS_ENABLE_FALLBACK": "0",
-                "IDS_INTERFACE": "eth0"
-            }
-        },
-        {
-            "name": "Run IDS Backend (Port 5001)",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/backend.py",
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "serverReadyAction": {
-                "action": "openExternally",
-                "pattern": "Running on (https?://\\S+)",
-                "uriFormat": "http://127.0.0.1:5001"
-            },
-            "env": {
-                "SNORT_ALERT_LOG": "/var/log/snort/alert_fast.log",
-                "IDS_ENABLE_FALLBACK": "0",
-                "IDS_INTERFACE": "eth0",
-                "IDS_PORT": "5001"
-            }
-        }
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: Backend",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "IDS_INTERFACE": "eth0",
+        "SNORT_ALERT_LOG": "/var/log/snort/alert_fast.log"
+      },
+      "justMyCode": true,
+      "serverReadyAction": {
+        "pattern": "Running on https?://\\S+",
+        "uriFormat": "http://127.0.0.1:5000/ids_dashboard_ui.html",
+        "action": "openExternally"
+      }
+    },
+    {
+      "name": "Open Dashboard in Firefox",
+      "type": "pwa-firefox",
+      "request": "launch",
+      "url": "http://127.0.0.1:5000/ids_dashboard_ui.html",
+      "webRoot": "${workspaceFolder}"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Launch Backend + Browser",
+      "configurations": ["Python: Backend"]
+    }
+  ]
 }

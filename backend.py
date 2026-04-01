@@ -606,4 +606,12 @@ if __name__ == "__main__":
     threading.Thread(target=tail_snort_log, daemon=True).start()
     threading.Thread(target=packet_capture_thread, daemon=True).start()
     threading.Thread(target=stats_emitter_thread, daemon=True).start()
-    socketio.run(app, host="0.0.0.0", port=IDS_PORT, debug=False)
+    # Allow unsafe Werkzeug for local/dev testing when running detached (non-WSGI).
+    # In production, run under a proper WSGI server instead.
+    socketio.run(
+        app,
+        host="0.0.0.0",
+        port=IDS_PORT,
+        debug=False,
+        allow_unsafe_werkzeug=True,
+    )
