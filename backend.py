@@ -6,6 +6,7 @@ import re
 import threading
 import time
 from collections import defaultdict, deque
+import logging
 
 from flask import Flask, jsonify, send_from_directory
 from flask_socketio import SocketIO
@@ -17,7 +18,16 @@ except Exception:  # pragma: no cover - handled at runtime via health/status fla
     IP = IPv6 = TCP = UDP = ICMP = ARP = DNS = None
 
 app = Flask(__name__, static_folder=".", static_url_path="")
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+# reduce verbosity: silence Werkzeug and Socket.IO/Engine.IO logs to avoid terminal spam
+logging.getLogger("werkzeug").setLevel(logging.WARNING)
+app.logger.setLevel(logging.WARNING)
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode="threading",
+    logger=False,
+    engineio_logger=False,
+)
 
 SNORT_LOG_ENV = os.environ.get("SNORT_ALERT_LOG", "").strip()
 ENABLE_FALLBACK_ALERTS = os.environ.get("IDS_ENABLE_FALLBACK", "0").strip().lower() in (
@@ -59,6 +69,7 @@ state_lock = threading.Lock()
 total_alerts_seen = 0
 packet_bytes_total = 0
 packets_seen_total = 0
+host_bytes_total = defaultdict(int)
 
 detector_events = {
     "portscan": defaultdict(lambda: deque()),
@@ -83,6 +94,8 @@ stats = {
     "blocked_hosts": 0,
     "alerts": [],
     "hosts": {},
+    "active_host_bandwidth": {},
+    "rules_matched": 0,
     "protocols": {"TCP": 0, "UDP": 0, "ICMP": 0, "ARP": 0, "OTHER": 0},
     "geo": {},
     "engine_active": True,
@@ -217,6 +230,8 @@ def upsert_host(ip, severity):
             "risk": "low",
             "events": 0,
             "last_seen": "",
+            "bytes": 0,
+            "bandwidth_mbps": 0.0,
         }
         stats["hosts"][ip] = host
 
@@ -258,6 +273,7 @@ def parse_and_store_alert(line):
         stats["alerts"] = stats["alerts"][:MAX_ALERTS]
         stats["last_alert_time"] = alert["time"]
         stats["threats"] += 1
+        stats["rules_matched"] = stats.get("rules_matched", 0) + 1
         total_alerts_seen += 1
 
         stats["protocols"][protocol] = stats["protocols"].get(protocol, 0) + 1
@@ -392,6 +408,10 @@ def process_packet(packet):
         packet_bytes_total += size_bytes
         stats["protocols"][protocol] = stats["protocols"].get(protocol, 0) + 1
         upsert_host(src, "LOW")
+        # track bytes per source host
+        if src != "unknown":
+            host_bytes_total[src] += size_bytes
+            stats["hosts"].setdefault(src, {}).update({"bytes": host_bytes_total[src]})
         stats["last_packet_time"] = time.strftime("%H:%M:%S")
         capture_runtime["last_packet_time"] = stats["last_packet_time"]
 
@@ -515,6 +535,7 @@ def stats_emitter_thread():
     previous_total_alerts = 0
     previous_packets = 0
     previous_bytes = 0
+    previous_host_bytes = {}
     while True:
         time.sleep(1)
         with state_lock:
@@ -539,6 +560,24 @@ def stats_emitter_thread():
             stats["capture_method"] = capture_runtime["method"]
             stats["last_packet_time"] = capture_runtime["last_packet_time"]
 
+            # compute per-host bandwidth (Mbps) over the last second and active host bandwidth map
+            active_bw = {}
+            for ip, host in stats["hosts"].items():
+                cur = host_bytes_total.get(ip, 0)
+                prev = previous_host_bytes.get(ip, 0)
+                delta = max(0, cur - prev)
+                mbps = round((delta * 8) / 1_000_000, 3)
+                host["bandwidth_mbps"] = mbps
+                host["bytes"] = cur
+                if mbps > 0:
+                    active_bw[ip] = mbps
+
+            # keep previous snapshot for next delta
+            previous_host_bytes = {ip: host_bytes_total.get(ip, 0) for ip in stats["hosts"]}
+            # include only top 10 active hosts by bandwidth
+            sorted_active = dict(sorted(active_bw.items(), key=lambda kv: kv[1], reverse=True)[:10])
+            stats["active_host_bandwidth"] = sorted_active
+
             snapshot = {
                 "pps": stats["pps"],
                 "threats": stats["threats"],
@@ -557,9 +596,66 @@ def stats_emitter_thread():
                 "new_alerts": alert_delta,
                 "protocols": copy.deepcopy(stats["protocols"]),
                 "geo": copy.deepcopy(stats["geo"]),
+                "active_host_bandwidth": copy.deepcopy(stats.get("active_host_bandwidth", {})),
             }
 
         socketio.emit("stats", snapshot)
+
+
+def parse_snort_rules():
+    """Parse Snort rules from configuration files and return list of rules with hit counts."""
+    rules_dict = {}
+    rules_files = []
+    
+    # Find all .rules files in /etc/snort/rules/ and /etc/snort/
+    for rules_file in glob.glob("/etc/snort/rules/*.rules"):
+        if os.path.exists(rules_file):
+            rules_files.append(rules_file)
+    
+    # Also check /etc/snort/ directly
+    for rules_file in glob.glob("/etc/snort/*.rules"):
+        if os.path.exists(rules_file) and rules_file not in rules_files:
+            rules_files.append(rules_file)
+    
+    # Parse each rules file
+    rule_pattern = re.compile(
+        r'alert\s+(\w+)\s+.*?'  # Protocol (tcp, udp, icmp, etc.)
+        r'\(.*?msg:"([^"]+)".*?'  # Message
+        r'sid:(\d+);'  # SID
+        r'.*?\)',
+        re.DOTALL
+    )
+    
+    for rules_file in rules_files:
+        try:
+            with open(rules_file, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+                # Find all rules in the file
+                for match in rule_pattern.finditer(content):
+                    proto = match.group(1).upper()
+                    msg = match.group(2)
+                    sid = match.group(3)
+                    
+                    if sid not in rules_dict:
+                        rules_dict[sid] = {
+                            'sid': int(sid),
+                            'msg': msg,
+                            'proto': proto,
+                            'enabled': True,
+                            'hits': 0
+                        }
+        except Exception as e:
+            print(f"Error parsing rules file {rules_file}: {e}")
+    
+    # Now count hits for each rule from alerts
+    with state_lock:
+        for alert in stats.get("alerts", []):
+            # Try to extract SID from alert message if available
+            # For now, we'll count generic hits
+            pass
+    
+    # Return top rules sorted by SID
+    return sorted(rules_dict.values(), key=lambda r: r['sid'])[:50]  # Return top 50
 
 
 @app.route("/")
@@ -600,6 +696,72 @@ def health():
             "packets_seen_total": packets_seen_total,
         }
     return jsonify(payload)
+
+
+@app.route("/api/packets")
+def get_packets():
+    with state_lock:
+        payload = {
+            "packets_seen_total": packets_seen_total,
+            "packet_bytes_total": packet_bytes_total,
+            "pps": stats.get("pps", 0),
+            "bandwidth_mbps": stats.get("bandwidth_mbps", 0.0),
+        }
+    return jsonify(payload)
+
+
+@app.route("/api/threats")
+def get_threats():
+    with state_lock:
+        payload = {
+            "threats": stats.get("threats", 0),
+            "rules_matched": stats.get("rules_matched", 0),
+            "last_alert_time": stats.get("last_alert_time"),
+            "recent_alerts": copy.deepcopy(stats.get("alerts", [])[:10]),
+        }
+    return jsonify(payload)
+
+
+@app.route("/api/hosts/active_bandwidth")
+def get_active_host_bandwidth():
+    with state_lock:
+        payload = copy.deepcopy(stats.get("active_host_bandwidth", {}))
+    return jsonify(payload)
+
+
+@app.route("/api/rules")
+def get_rules():
+    with state_lock:
+        payload = {
+            "rules_configured": stats.get("rules", 0),
+            "rules_matched": stats.get("rules_matched", 0),
+        }
+    return jsonify(payload)
+
+
+@app.route("/api/snort_rules")
+def get_snort_rules():
+    """Return detailed Snort rules with hit counts."""
+    rules = parse_snort_rules()
+    
+    # Count hits per rule from recent alerts
+    rule_hits = {}
+    with state_lock:
+        for alert in stats.get("alerts", []):
+            # Extract rule info from alert message if available
+            msg = alert.get("message", "")
+            # For now, distribute hits evenly or use a simple counter
+            # In a real implementation, Snort logs include the SID
+            pass
+    
+    # Apply hit counts to rules
+    for rule in rules:
+        rule['hits'] = rule_hits.get(str(rule['sid']), 0)
+    
+    return jsonify({
+        "total_rules": len(rules),
+        "rules": rules
+    })
 
 
 if __name__ == "__main__":

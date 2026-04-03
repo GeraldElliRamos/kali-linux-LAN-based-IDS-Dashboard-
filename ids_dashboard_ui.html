@@ -1,141 +1,111 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LAN-Based IDS Dashboard</title>
-<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
-<script>
-  // Guard against third-party/injected scripts calling mgt.clearMarks before/after reassignment.
-  (function () {
-    function ensureClearMarks(target) {
-      const obj = target && typeof target === 'object' ? target : {};
-      if (typeof obj.clearMarks !== 'function') {
-        obj.clearMarks = function () {};
-      }
-      return obj;
-    }
-
-    let internalMgt = ensureClearMarks(window.mgt);
-
-    Object.defineProperty(window, 'mgt', {
-      configurable: true,
-      enumerable: true,
-      get: function () {
-        return internalMgt;
-      },
-      set: function (value) {
-        internalMgt = ensureClearMarks(value);
-      }
-    });
-
-    window.mgt = internalMgt;
-
-    window.addEventListener('error', function (event) {
-      if (event && typeof event.message === 'string' && event.message.indexOf('mgt.clearMarks is not a function') !== -1) {
-        event.preventDefault();
-      }
-    });
-  })();
-</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kali IDS Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="grid-bg"></div>
-<div class="scan-line"></div>
 
-<div class="wrapper">
+<div class="container">
 
-  <!-- HEADER -->
-  <header>
-    <div class="logo">
-      <div class="logo-icon">🛡️</div>
-      <div class="logo-text">
-        <h1>LAN-BASED IDS DASHBOARD</h1>
-        <p>INTRUSION DETECTION SYSTEM // TIP-QUEZON CITY</p>
+  <!-- ENHANCED HEADER WITH STATUS -->
+  <header class="status-header">
+    <div class="header-left">
+      <div class="title-section">
+        <h1>🛡️ LAN-BASED IDS DASHBOARD</h1>
+        <p class="subtitle">Real-time Network Security Monitor</p>
       </div>
     </div>
-    <div class="status-cluster">
-      <div class="status-badge"><div class="pulse" id="engine-pulse"></div><span id="engine-status">ENGINE ACTIVE</span></div>
-      <div class="status-badge"><div class="pulse yellow"></div><span id="alerts-badge">0 ALERTS</span></div>
-      <div class="status-badge"><div class="pulse red"></div><span id="blocked-badge">0 BLOCKED</span></div>
-      <div class="clock" id="clock">--:--:--</div>
+    <div class="header-center">
+      <div class="status-indicator">
+        <span id="engine-pulse" class="pulse"></span>
+        <span id="engine-status">ENGINE ACTIVE</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="status-badge red-badge">
+        <span class="badge-icon">⚠️</span>
+        <span id="alerts-badge">0 ALERTS</span>
+      </div>
+      <div class="status-badge">
+        <span class="badge-icon">🚫</span>
+        <span id="blocked-badge">0 BLOCKED</span>
+      </div>
+      <div class="clock-display" id="clock">00:00:00</div>
     </div>
   </header>
 
-  <!-- CONTROLS -->
-  <div class="controls">
-    <button class="btn active" onclick="toggleBtn(this)">▶ MONITORING</button>
-    <button class="btn" onclick="toggleBtn(this)">⟳ AUTO-BLOCK</button>
-    <button class="btn" onclick="toggleBtn(this)">⬇ CAPTURE PCAP</button>
-    <button class="btn danger">⊘ BLOCK HOST</button>
-    <div class="sep"></div>
-    <div class="filter-group">
-      INTERFACE:
-      <select>
-        <option>eth0</option>
-        <option>wlan0</option>
-        <option>lo</option>
-      </select>
-    </div>
-    <div class="filter-group">
-      SEVERITY:
-      <select>
-        <option>ALL</option>
-        <option>CRITICAL</option>
-        <option>HIGH</option>
-        <option>MEDIUM</option>
-      </select>
-    </div>
-  </div>
-
   <!-- METRICS ROW -->
   <div class="metrics-row">
-    <div class="metric-card green-card">
+    <div class="metric-card green-card clickable" onclick="onMetricClick('pps')" role="button" tabindex="0">
       <div class="metric-label">Packets/sec</div>
-      <div class="metric-value" id="pps">2,847</div>
+      <div class="metric-value" id="pps"><button class="metric-link" onclick="onMetricClick('pps');return false;">2,847</button></div>
       <div class="metric-sub up" id="pps-sub">▲ +4.2%</div>
       <div class="sparkline"><svg id="spark-pps"></svg></div>
     </div>
-    <div class="metric-card red-card">
+    <div class="metric-card red-card clickable" onclick="onMetricClick('threats')" role="button" tabindex="0">
       <div class="metric-label">Threats Detected</div>
-      <div class="metric-value" id="threats">14</div>
+      <div class="metric-value" id="threats"><button class="metric-link" onclick="onMetricClick('threats');return false;">14</button></div>
       <div class="metric-sub down" id="threats-sub">▲ +2 last 5min</div>
       <div class="sparkline"><svg id="spark-threats"></svg></div>
     </div>
-    <div class="metric-card cyan-card">
+    <div class="metric-card cyan-card clickable" onclick="onMetricClick('hosts')" role="button" tabindex="0">
       <div class="metric-label">Active Hosts</div>
-      <div class="metric-value" id="hosts-count">23</div>
+      <div class="metric-value" id="hosts-count"><button class="metric-link" onclick="onMetricClick('hosts');return false;">23</button></div>
       <div class="metric-sub">Online on LAN</div>
       <div class="sparkline"><svg id="spark-hosts"></svg></div>
     </div>
-    <div class="metric-card yellow-card">
+    <div class="metric-card yellow-card clickable" onclick="onMetricClick('bw')" role="button" tabindex="0">
       <div class="metric-label">Bandwidth</div>
-      <div class="metric-value" id="bw">48.3</div>
+      <div class="metric-value" id="bw"><button class="metric-link" onclick="onMetricClick('bw');return false;">48.3</button></div>
       <div class="metric-sub">Mbps total</div>
       <div class="sparkline"><svg id="spark-bw"></svg></div>
     </div>
-    <div class="metric-card green-card">
+    <div class="metric-card green-card clickable" onclick="onMetricClick('rules')" role="button" tabindex="0">
       <div class="metric-label">Rules Matched</div>
-      <div class="metric-value" id="rules">371</div>
+      <div class="metric-value" id="rules"><button class="metric-link" onclick="onMetricClick('rules');return false;">371</button></div>
       <div class="metric-sub up">Snort rules active</div>
       <div class="sparkline"><svg id="spark-rules"></svg></div>
     </div>
+  </div>
+
+  <!-- Top Talkers Panel (right column) -->
+  <div class="panel" style="grid-column: 3; grid-row: 1;">
+    <div class="panel-title">📡 Top Talkers</div>
+    <div class="top-talkers" id="top-talkers"></div>
   </div>
 
   <!-- MAIN GRID -->
   <div class="main-grid">
 
     <!-- LEFT: HOST LIST -->
-    <div class="panel" style="grid-row: 1;">
-      <div class="panel-title">🖥 Active Hosts</div>
+      <div class="panel" style="grid-row: 1;" role="region" aria-label="Active Hosts panel">
+        <div class="panel-title">🖥 Active Hosts</div>
+        <div style="position:absolute; right:12px; top:12px;">
+          <button class="btn" id="toggle-hosts-btn" onclick="toggleHostsPanel()" title="Toggle hosts panel">⇳</button>
+        </div>
       <div style="overflow:auto; max-height: 200px;">
-        <table class="host-table">
+        <div class="host-search" role="search" aria-label="Host search and sort">
+          <input id="host-filter" placeholder="Filter hosts (IP or risk)..." oninput="filterHosts()" aria-label="Filter hosts" />
+          <button class="btn" onclick="clearHostFilter()" aria-label="Clear host filter">Clear</button>
+          <label style="margin-left:8px; color:var(--text-dim); font-size:11px;">Sort:</label>
+          <select id="host-sort" onchange="applyHostSort()" aria-label="Sort hosts">
+            <option value="events:desc">Events ↓</option>
+            <option value="events:asc">Events ↑</option>
+            <option value="bandwidth:desc">Bandwidth ↓</option>
+            <option value="bandwidth:asc">Bandwidth ↑</option>
+            <option value="ip:asc">IP A→Z</option>
+          </select>
+        </div>
+        <table class="host-table" role="table" aria-label="Active hosts table">
           <thead>
             <tr>
               <th>IP</th>
               <th>Status</th>
               <th>Risk</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody id="host-tbody"></tbody>
@@ -155,8 +125,18 @@
         <div class="panel-title">🚨 Alerts & History</div>
         <div class="tab-container">
           <div class="tab-buttons">
-            <button class="tab-btn active" onclick="switchTab('alert-log-tab')">📊 LIVE</button>
-            <button class="tab-btn" onclick="switchTab('history-tab')">📜 HISTORY</button>
+            <button class="tab-btn active" onclick="switchTab('alert-log-tab', event)">📊 LIVE</button>
+            <button class="tab-btn" onclick="switchTab('history-tab', event)">📜 HISTORY</button>
+                <div style="margin-left:8px; display:flex; gap:6px; align-items:center;">
+                  <label style="color:var(--text-dim); font-size:11px;">Show:</label>
+                  <select id="alert-severity-filter" onchange="applyAlertFilter()" aria-label="Filter alerts by severity">
+                    <option value="all">All</option>
+                    <option value="CRITICAL">Critical</option>
+                    <option value="HIGH">High</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="LOW">Low</option>
+                  </select>
+                </div>
           </div>
           <div id="alert-log-tab" class="tab-content active">
             <div class="alert-log" id="alert-log"></div>
@@ -194,35 +174,20 @@
 <script>
 function updateClock() {
   const now = new Date();
-  document.getElementById('clock').textContent = now.toTimeString().slice(0, 8);
+  const el = document.getElementById('clock');
+  if (el) el.textContent = now.toTimeString().slice(0, 8);
 }
 setInterval(updateClock, 1000);
 updateClock();
 
-function toggleBtn(el) {
-  el.classList.toggle('active');
-}
-
-function switchTab(tabId) {
-  const tabs = document.querySelectorAll('.tab-content');
-  const btns = document.querySelectorAll('.tab-btn');
-  tabs.forEach(tab => tab.classList.remove('active'));
-  btns.forEach(btn => btn.classList.remove('active'));
-  document.getElementById(tabId).classList.add('active');
-  event.target.classList.add('active');
-}
-
-const sevToClass = { CRITICAL: 'sev-critical', HIGH: 'sev-high', MEDIUM: 'sev-medium', LOW: 'sev-low' };
-const protoColors = { TCP: '#00ff88', UDP: '#00e5ff', ICMP: '#ffcc00', ARP: '#ff6600', OTHER: '#ff2244' };
-const sparkColors = { pps: '#00ff88', threats: '#ff2244', hosts: '#00e5ff', bw: '#ffcc00', rules: '#00ff88' };
 const state = {
   connected: false,
   hasBackend: false,
   socket: null,
+  notices: {},
   statsPollTimer: null,
   alertsPollTimer: null,
-  notices: {},
-  sparkData: {
+  sparklines: {
     pps: Array.from({ length: 20 }, () => 0.1),
     threats: Array.from({ length: 20 }, () => 0.1),
     hosts: Array.from({ length: 20 }, () => 0.1),
@@ -233,6 +198,8 @@ const state = {
   protocols: { TCP: 0, UDP: 0, ICMP: 0, ARP: 0, OTHER: 0 },
   geo: {},
   trafficData: [],
+  lastAlerts: [],
+  snort_rules: [],
   history: {
     alerts: [],
     threats: 0,
@@ -240,6 +207,86 @@ const state = {
     startTime: new Date()
   }
 };
+
+// Protocol colors mapping
+const protoColors = {
+  'TCP': '#00ff88',
+  'UDP': '#ff6600',
+  'ICMP': '#ffaa00',
+  'ARP': '#00aaff',
+  'OTHER': '#ff0088'
+};
+
+// Severity to CSS class mapping
+const sevToClass = {
+  'CRITICAL': 'sev-critical',
+  'HIGH': 'sev-high',
+  'MEDIUM': 'sev-medium',
+  'LOW': 'sev-low'
+};
+
+// Sparkline data management
+function pushSpark(key, value, maxVal) {
+  if (!state.sparklines[key]) return;
+  state.sparklines[key].push(Math.min(1, value / maxVal));
+  if (state.sparklines[key].length > 20) {
+    state.sparklines[key].shift();
+  }
+  drawSpark(key);
+}
+
+function drawSpark(key) {
+  const svgEl = document.getElementById('spark-' + key);
+  if (!svgEl) return;
+  const data = state.sparklines[key] || [];
+  if (data.length === 0) return;
+  
+  const width = 100, height = 30;
+  const step = width / (data.length - 1 || 1);
+  
+  const points = data.map((v, i) => {
+    const x = i * step;
+    const y = height - (v * height * 0.8) - 3;
+    return x + ',' + y;
+  }).join(' ');
+  
+  svgEl.innerHTML = '<polyline points="' + points + '" style="fill:none;stroke:#00ff88;stroke-width:1.5" />';
+  svgEl.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+}
+
+// Notice management
+function clearNotice(key) {
+  delete state.notices[key];
+}
+
+// Tab switching
+function switchTab(tabId, event) {
+  if (event) event.preventDefault();
+  
+  // Hide all tabs
+  document.querySelectorAll('.tab-content').forEach(el => {
+    el.classList.remove('active');
+  });
+  
+  // Deactivate all buttons
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  
+  // Show selected tab
+  const tab = document.getElementById(tabId);
+  if (tab) tab.classList.add('active');
+  
+  // Activate clicked button
+  if (event && event.target) {
+    event.target.classList.add('active');
+  }
+}
+
+// Alert filtering
+function applyAlertFilter() {
+  renderAlerts(state.lastAlerts || []);
+}
 
 function addTermLine(type, msg) {
   const output = document.getElementById('term-output');
@@ -256,6 +303,24 @@ function addTermLine(type, msg) {
   }
 }
 
+// Animated number updater
+function animateNumber(el, newValue, opts = {}) {
+  if (!el) return;
+  const start = Number(el.dataset.current || el.textContent.replace(/[^0-9.]/g, '') || 0);
+  const end = Number(newValue || 0);
+  el.dataset.current = end;
+  if (isNaN(start) || isNaN(end) || start === end) { el.textContent = newValue.toLocaleString ? newValue.toLocaleString() : String(newValue); return; }
+  const duration = opts.duration || 600;
+  const startTs = performance.now();
+  function step(ts) {
+    const t = Math.min(1, (ts - startTs) / duration);
+    const val = Math.round(start + (end - start) * t);
+    el.textContent = val.toLocaleString ? val.toLocaleString() : String(val);
+    if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
 function notifyOnce(key, type, msg) {
   if (state.notices[key]) {
     return;
@@ -264,55 +329,91 @@ function notifyOnce(key, type, msg) {
   addTermLine(type, msg);
 }
 
-function clearNotice(key) {
-  delete state.notices[key];
-}
-
-function drawSparkline(svgId, data, color) {
-  const svg = document.getElementById(svgId);
-  if (!svg || data.length < 2) {
-    return;
-  }
-  svg.setAttribute('viewBox', '0 0 100 28');
-  const max = Math.max(...data);
-  const min = Math.min(...data);
-  const pts = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * 100;
-    const y = 28 - ((v - min) / (max - min || 1)) * 24 - 2;
-    return x + ',' + y;
-  }).join(' ');
-  svg.innerHTML = '<polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="1.5" opacity="0.9"/>';
-}
-
-function pushSpark(metric, value, normalizer) {
-  const arr = state.sparkData[metric];
-  if (!arr) {
-    return;
-  }
-  arr.push(Math.max(0.01, Math.min(1, value / normalizer)));
-  if (arr.length > 20) {
-    arr.shift();
-  }
-  drawSparkline('spark-' + metric, arr, sparkColors[metric]);
+function filterHosts() {
+  renderHosts();
 }
 
 function renderHosts() {
   const tbody = document.getElementById('host-tbody');
-  const rows = state.hosts.slice(0, 20).map((h) => {
+  if (!tbody) return;
+  const q = (document.getElementById('host-filter') && document.getElementById('host-filter').value || '').toLowerCase();
+  const sortVal = (document.getElementById('host-sort') && document.getElementById('host-sort').value) || 'events:desc';
+  const [sortKey, sortDir] = sortVal.split(':');
+
+  let list = (state.hosts || []).slice();
+  if (q) {
+    list = list.filter(h => (h.ip||'').toLowerCase().includes(q) || (h.risk||'').toLowerCase().includes(q) || (h.status||'').toLowerCase().includes(q));
+  }
+
+  list.sort((a, b) => {
+    const va = (a[sortKey] === undefined) ? 0 : a[sortKey];
+    const vb = (b[sortKey] === undefined) ? 0 : b[sortKey];
+    if (sortKey === 'ip') {
+      if ((va||'') < (vb||'')) return sortDir === 'asc' ? -1 : 1;
+      if ((va||'') > (vb||'')) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    }
+    const na = Number(va) || 0;
+    const nb = Number(vb) || 0;
+    if (na === nb) return 0;
+    return sortDir === 'asc' ? na - nb : nb - na;
+  });
+
+  const rows = list.slice(0, 500).map(h => {
     const status = (h.status || 'online').toLowerCase();
     const risk = (h.risk || 'low').toLowerCase();
     const statusColor = status === 'blocked' ? 'var(--red)' : (status === 'suspect' ? 'var(--yellow)' : 'var(--green)');
-    return '<tr>' +
-      '<td><span class="host-status-dot ' + status + '"></span>' + h.ip + '</td>' +
-      '<td style="color:' + statusColor + '; font-size:9px;">' + status.toUpperCase() + '</td>' +
+    const blockBtnClass = status === 'blocked' ? 'btn-danger' : 'btn-block';
+    const blockBtnText = status === 'blocked' ? 'UNBLOCK' : 'BLOCK';
+    return '<tr data-ip="' + (h.ip||'') + '" oncontextmenu="showContextMenu(event, \"host\", \'' + (h.ip||'') + '\')">' +
+      '<td><button class="metric-link" onclick="showHostDetail(\'' + (h.ip||'') + '\');return false;"><span class="host-status-dot ' + status + '"></span>' + (h.ip||'') + '</button></td>' +
+      '<td style="color:' + statusColor + '; font-size:10px;">' + (status||'').toUpperCase() + '</td>' +
       '<td><div class="risk-bar-wrap"><div class="risk-bar ' + risk + '"></div></div></td>' +
+      '<td><button class="btn-action ' + blockBtnClass + '" onclick="blockHost(\'' + (h.ip||'') + '\');return false;" title="' + blockBtnText + ' ' + (h.ip||'') + '">' + blockBtnText + '</button></td>' +
       '</tr>';
   });
+
   tbody.innerHTML = rows.join('');
+}
+
+function applyHostSort() {
+  renderHosts();
+}
+
+function clearHostFilter() { const el = document.getElementById('host-filter'); if (el) el.value = ''; renderHosts(); }
+
+function blockHost(ip) {
+  // Find the host in state
+  const hostIdx = state.hosts.findIndex(h => h.ip === ip);
+  if (hostIdx === -1) return;
+  
+  const host = state.hosts[hostIdx];
+  const newStatus = host.status === 'blocked' ? 'online' : 'blocked';
+  
+  // Update host status
+  state.hosts[hostIdx].status = newStatus;
+  
+  // Add system log entry
+  if (newStatus === 'blocked') {
+    addTermLine('alert', 'Host ' + ip + ' has been BLOCKED');
+    prependAlert({
+      time: new Date().toTimeString().slice(0, 8),
+      severity: 'HIGH',
+      message: 'Host blocked by administrator',
+      src: ip,
+      dst: ''
+    });
+  } else {
+    addTermLine('ok', 'Host ' + ip + ' has been UNBLOCKED');
+  }
+  
+  // Re-render hosts
+  renderHosts();
 }
 
 function renderProtocols() {
   const list = document.getElementById('proto-list');
+  if (!list) return;
   const names = ['TCP', 'UDP', 'ICMP', 'ARP', 'OTHER'];
   const total = names.reduce((sum, name) => sum + (state.protocols[name] || 0), 0) || 1;
   list.innerHTML = names.map((name) => {
@@ -326,8 +427,29 @@ function renderProtocols() {
   }).join('');
 }
 
+// Toggle hosts panel collapsed state
+function toggleHostsPanel() {
+  const panel = document.querySelector('.panel');
+  if (!panel) return;
+  panel.classList.toggle('collapsed');
+  const btn = document.getElementById('toggle-hosts-btn');
+  if (!btn) return;
+  if (panel.classList.contains('collapsed')) btn.textContent = '⇵'; else btn.textContent = '⇳';
+}
+
+// Keyboard shortcuts for quick navigation
+window.addEventListener('keydown', (ev) => {
+  if (ev.target && (ev.target.tagName === 'INPUT' || ev.target.tagName === 'TEXTAREA')) return;
+  if (ev.key === 'a') { switchTab('alert-log-tab'); addTermLine('info','Shortcut: Alerts'); ev.preventDefault(); }
+  if (ev.key === 'h') { const el = document.getElementById('host-filter'); if (el) el.focus(); addTermLine('info','Shortcut: Focus Hosts'); ev.preventDefault(); }
+  if (ev.key === 't') { const el = document.getElementById('traffic-canvas'); if (el) el.scrollIntoView({behavior:'smooth', block:'center'}); addTermLine('info','Shortcut: Traffic'); ev.preventDefault(); }
+  if (ev.key === 'r') { switchTab('history-tab'); addTermLine('info','Shortcut: History'); ev.preventDefault(); }
+  if (ev.key === '/') { const el = document.getElementById('host-filter'); if (el) el.focus(); ev.preventDefault(); }
+});
+
 function renderGeo() {
   const list = document.getElementById('geo-list');
+  if (!list) return;
   const entries = Object.entries(state.geo).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const maxCount = entries.length ? entries[0][1] : 1;
   list.innerHTML = entries.map(([name, count]) => {
@@ -343,10 +465,14 @@ function renderGeo() {
 
 function renderAlerts(alerts) {
   const log = document.getElementById('alert-log');
-  const topAlerts = alerts.slice(0, 30);
+  if (!log) return;
+  state.lastAlerts = alerts || [];
+  const filter = (document.getElementById('alert-severity-filter') && document.getElementById('alert-severity-filter').value) || 'all';
+  const topAlerts = (alerts || []).filter(a => filter === 'all' || (a.severity && a.severity.toUpperCase() === filter)).slice(0, 200);
   log.innerHTML = topAlerts.map((a) => {
     const severity = (a.severity || 'LOW').toUpperCase();
-    return '<div class="alert-item">' +
+    const encoded = encodeURIComponent(JSON.stringify(a));
+    return '<div class="alert-item clickable" role="button" tabindex="0" aria-label="Alert ' + (a.message||'') + '" onclick="showAlertDetail(\'' + encoded + '\');return false;" oncontextmenu="showContextMenu(event, \"alert\", \'' + encoded + '\');return false;">' +
       '<div class="alert-time">' + (a.time || '--:--:--') + '</div>' +
       '<div class="alert-severity ' + (sevToClass[severity] || 'sev-low') + '">' + severity + '</div>' +
       '<div class="alert-msg">' + (a.message || 'Unknown alert') + '</div>' +
@@ -357,6 +483,7 @@ function renderAlerts(alerts) {
 
 function prependAlert(alert) {
   const log = document.getElementById('alert-log');
+  if (!log) return;
   const severity = (alert.severity || 'LOW').toUpperCase();
   const div = document.createElement('div');
   div.className = 'alert-item';
@@ -421,6 +548,7 @@ function trackHistory(alert) {
 
 function renderHistory() {
   const list = document.getElementById('history-list');
+  if (!list) return;
   const entries = state.history.alerts.slice(0, 30);
   
   list.innerHTML = entries.map((entry) => {
@@ -440,15 +568,17 @@ function renderHistory() {
 }
 
 const canvas = document.getElementById('traffic-canvas');
-const ctx = canvas.getContext('2d');
+const ctx = canvas ? canvas.getContext('2d') : null;
 
 function initCanvas() {
+  if (!canvas || !ctx) return;
   canvas.width = canvas.offsetWidth * window.devicePixelRatio;
   canvas.height = canvas.offsetHeight * window.devicePixelRatio;
   ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
 }
 
 function drawTraffic() {
+  if (!canvas || !ctx) return;
   const w = canvas.offsetWidth;
   const h = canvas.offsetHeight;
   ctx.clearRect(0, 0, w, h);
@@ -508,12 +638,14 @@ function updateTrafficSeries(mbps) {
 }
 
 function updateHeaderStats(threats, blocked, engineActive) {
-  document.getElementById('alerts-badge').textContent = threats + ' ALERTS';
-  document.getElementById('blocked-badge').textContent = blocked + ' BLOCKED';
+  const alertsBadge = document.getElementById('alerts-badge');
+  if (alertsBadge) alertsBadge.textContent = threats + ' ALERTS';
+  const blockedBadge = document.getElementById('blocked-badge');
+  if (blockedBadge) blockedBadge.textContent = blocked + ' BLOCKED';
   const pulse = document.getElementById('engine-pulse');
   const text = document.getElementById('engine-status');
-  text.textContent = engineActive ? 'ENGINE ACTIVE' : 'ENGINE DEGRADED';
-  pulse.classList.toggle('red', !engineActive);
+  if (text) text.textContent = engineActive ? 'ENGINE ACTIVE' : 'ENGINE DEGRADED';
+  if (pulse) pulse.classList.toggle('red', !engineActive);
 }
 
 function applyStats(payload) {
@@ -524,11 +656,18 @@ function applyStats(payload) {
   const rules = Number(payload.rules || 0);
   const blockedHosts = Number(payload.blocked_hosts || 0);
 
-  document.getElementById('pps').textContent = pps.toLocaleString();
-  document.getElementById('threats').textContent = threats.toLocaleString();
-  document.getElementById('hosts-count').textContent = hostCount.toLocaleString();
-  document.getElementById('bw').textContent = bandwidth.toFixed(2);
-  document.getElementById('rules').textContent = rules.toLocaleString();
+  // Animate numeric transitions for better UX
+  const ppsEl = document.getElementById('pps');
+  if (ppsEl) animateNumber(ppsEl, pps, { duration: 600 });
+  const threatsEl = document.getElementById('threats');
+  if (threatsEl) animateNumber(threatsEl, threats, { duration: 600 });
+  const hostsEl = document.getElementById('hosts-count');
+  if (hostsEl) animateNumber(hostsEl, hostCount, { duration: 400 });
+  // bandwidth with 2 decimals
+  const bwEl = document.getElementById('bw');
+  if (bwEl) { bwEl.textContent = bandwidth.toFixed(2); bwEl.dataset.current = bandwidth; }
+  const rulesEl = document.getElementById('rules');
+  if (rulesEl) animateNumber(rulesEl, rules, { duration: 700 });
 
   updateHeaderStats(threats, blockedHosts, !!payload.engine_active);
   pushSpark('pps', pps, 3000);
@@ -626,6 +765,19 @@ async function loadInitialData() {
       renderAlerts(alerts);
     }
 
+    // Load Snort rules from backend
+    try {
+      const rulesRes = await fetch('/api/snort_rules');
+      if (rulesRes.ok) {
+        const rulesData = await rulesRes.json();
+        if (rulesData.rules && rulesData.rules.length > 0) {
+          state.snort_rules = rulesData.rules;
+        }
+      }
+    } catch (e) {
+      console.log("Could not pre-load Snort rules");
+    }
+
     addTermLine('ok', 'Backend API synchronized. Live mode enabled.');
     if (statsPayload.capture_method) {
       addTermLine('info', 'Capture method: ' + statsPayload.capture_method + ' | interface: ' + (statsPayload.capture_interface || 'auto'));
@@ -669,8 +821,92 @@ function connectSocket() {
   socket.on('alert', (alert) => {
     prependAlert(alert || {});
     addTermLine('alert', (alert && alert.message ? alert.message : 'Alert received') + ' [' + (alert && alert.src ? alert.src : 'unknown') + ']');
+    try {
+      if (window.__notifEnabled && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        const sev = (alert && alert.severity || '').toUpperCase();
+        if (sev === 'CRITICAL') {
+          new Notification('CRITICAL alert', { body: (alert.message || 'Critical event') + ' [' + (alert.src||'') + ']' });
+        }
+      }
+    } catch (e) { /* ignore */ }
   });
 }
+
+// --- Context menu implementation ---
+document.body.insertAdjacentHTML('beforeend', '<div id="ctx-menu" class="ctx-menu" role="menu"></div>');
+const ctxMenu = document.getElementById('ctx-menu');
+function showContextMenu(ev, type, data) {
+  if (!ctxMenu) return;
+  ev.preventDefault();
+  while (ctxMenu.firstChild) ctxMenu.removeChild(ctxMenu.firstChild);
+  let items = [];
+  if (type === 'host') {
+    const ip = data;
+    items = [
+      { label: 'Copy IP', action: () => navigator.clipboard.writeText(ip) },
+      { label: 'Whois (new tab)', action: () => window.open('https://whois.domaintools.com/' + ip, '_blank') },
+      { label: 'Request block (UI)', action: () => { prependAlert({ time: new Date().toTimeString().slice(0,8), severity: 'HIGH', message: 'UI block requested', src: ip, dst: ''}); } }
+    ];
+  } else if (type === 'alert') {
+    let alertObj = data;
+    try { alertObj = typeof data === 'string' ? JSON.parse(decodeURIComponent(data)) : data; } catch (e) {}
+    const txt = alertObj && alertObj.src ? alertObj.src : JSON.stringify(alertObj || {});
+    items = [
+      { label: 'Copy alert message', action: () => navigator.clipboard.writeText(alertObj && alertObj.message ? alertObj.message : txt) },
+      { label: 'Show details', action: () => showAlertDetail(data) }
+    ];
+  }
+  items.forEach(it => { const btn = document.createElement('button'); btn.textContent = it.label; btn.onclick = () => { it.action(); hideContextMenu(); }; ctxMenu.appendChild(btn); });
+  ctxMenu.style.left = ev.pageX + 'px';
+  ctxMenu.style.top = ev.pageY + 'px';
+  ctxMenu.classList.add('active');
+}
+function hideContextMenu() { ctxMenu.classList.remove('active'); }
+window.addEventListener('click', hideContextMenu);
+
+// --- Notifications toggle ---
+function toggleNotifications() {
+  window.__notifEnabled = !window.__notifEnabled;
+  const btn = document.getElementById('notif-toggle');
+  if (!btn) return;
+  btn.setAttribute('aria-pressed', window.__notifEnabled ? 'true' : 'false');
+  if (window.__notifEnabled) {
+    if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
+      Notification.requestPermission().then(p => { if (p !== 'granted') { window.__notifEnabled = false; if (btn) btn.setAttribute('aria-pressed','false'); addTermLine('warn','Notifications permission denied'); } });
+    }
+  }
+}
+
+// --- Save / Load layout ---
+function saveLayout() {
+  const layout = { hostsCollapsed: document.querySelector('.panel')?.classList.contains('collapsed') || false, theme: document.body.classList.contains('theme-light') ? 'light' : 'dark', lastTab: document.querySelector('.tab-content.active')?.id || '' };
+  localStorage.setItem('ids_layout', JSON.stringify(layout));
+  addTermLine('ok', 'Layout saved');
+}
+function loadLayout() {
+  const raw = localStorage.getItem('ids_layout');
+  if (!raw) { addTermLine('warn','No saved layout'); return; }
+  try {
+    const layout = JSON.parse(raw);
+    if (layout.hostsCollapsed) document.querySelector('.panel')?.classList.add('collapsed'); else document.querySelector('.panel')?.classList.remove('collapsed');
+    if (layout.theme === 'light') document.body.classList.add('theme-light'); else document.body.classList.remove('theme-light');
+    if (layout.lastTab) switchTab(layout.lastTab);
+    addTermLine('ok', 'Layout loaded');
+  } catch (e) { addTermLine('warn', 'Failed loading layout'); }
+}
+
+// --- Theme toggle ---
+function toggleTheme() { document.body.classList.toggle('theme-light'); }
+
+// --- Top talkers ---
+function renderTopTalkers() {
+  const el = document.getElementById('top-talkers');
+  if (!el) return;
+  const list = (state.hosts || []).map(h => ({ ip: h.ip, mbps: h.bandwidth_mbps || 0 }));
+  const sorted = list.sort((a,b)=>b.mbps-a.mbps).slice(0,6);
+  el.innerHTML = sorted.map(h => '<div class="talker-row"><div class="talker-ip">'+h.ip+'</div><div class="talker-mbps">'+(h.mbps||0)+' Mbps</div></div>').join('') || '<div style="padding:8px;color:var(--text-muted)">No data</div>';
+}
+setInterval(renderTopTalkers, 2000);
 
 function startFallbackSimulation() {
   let threats = 0;
@@ -711,9 +947,128 @@ function startFallbackSimulation() {
 }
 
 window.addEventListener('resize', () => {
-  initCanvas();
-  drawTraffic();
+  if (canvas && ctx) {
+    initCanvas();
+    drawTraffic();
+  }
 });
+
+function highlightElement(el) {
+  if (!el) return;
+  el.classList.add('metric-highlight');
+  setTimeout(() => el.classList.remove('metric-highlight'), 900);
+}
+
+function onMetricClick(key) {
+  // Map metric keys to UI actions
+  if (key === 'pps' || key === 'bw') {
+    // focus traffic graph
+    const canvas = document.getElementById('traffic-canvas');
+    if (canvas) {
+      canvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      highlightElement(canvas.closest('.panel') || canvas);
+    }
+  } else if (key === 'threats') {
+    // open live alerts tab and highlight
+    switchTab('alert-log-tab');
+    const el = document.getElementById('alert-log');
+    highlightElement(el);
+  } else if (key === 'hosts') {
+    // focus hosts panel
+    const el = document.querySelector('.panel .host-table') || document.getElementById('host-tbody');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      highlightElement(el.closest('.panel') || el);
+    }
+  } else if (key === 'rules') {
+    // Load and show Snort rules from backend
+    loadAndShowSnortRules();
+  }
+}
+
+async function loadAndShowSnortRules() {
+  try {
+    const res = await fetch('/api/snort_rules', { cache: 'no-store' });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.rules && data.rules.length > 0) {
+        state.snort_rules = data.rules;
+      }
+    }
+  } catch (e) {
+    console.log("Backend rules not available, using fallback");
+  }
+  showSnortRulesDetail();
+}
+
+function showSnortRulesDetail() {
+  // Initialize sample Snort rules if empty
+  if (!state.snort_rules || state.snort_rules.length === 0) {
+    state.snort_rules = [
+      { sid: 1000000, msg: 'ET MALWARE Win32/Conficker Worm Checkin', proto: 'tcp', enabled: true, hits: 3 },
+      { sid: 2000001, msg: 'GPL SHELLCODE x86 NOOP', proto: 'tcp', enabled: true, hits: 8 },
+      { sid: 2000002, msg: 'TRAFFIC DNS DNS Query', proto: 'udp', enabled: true, hits: 23 },
+      { sid: 2012345, msg: 'ET EXPLOIT Suspicious File Transfer', proto: 'tcp', enabled: true, hits: 1 },
+      { sid: 2054321, msg: 'GPL ATTACK Potential SSH Brute Force', proto: 'tcp', enabled: true, hits: 15 },
+      { sid: 3000100, msg: 'ET POLICY Dropbox.com SSL Traffic', proto: 'tcp', enabled: false, hits: 0 },
+      { sid: 3000101, msg: 'ET POLICY Skype VoIP SSL Traffic', proto: 'tcp', enabled: false, hits: 0 },
+      { sid: 2010100, msg: 'GPL ATTACK Attempted User Privilege Gain', proto: 'tcp', enabled: true, hits: 2 },
+      { sid: 2025001, msg: 'ET CURRENT_EVENTS PlugX CnC Check', proto: 'tcp', enabled: true, hits: 0 },
+      { sid: 2035002, msg: 'ET MALWARE MINER Generic CpuMiner Hashrate Request', proto: 'tcp', enabled: true, hits: 5 }
+    ];
+  }
+  
+  const enabledCount = state.snort_rules.filter(r => r.enabled).length;
+  const totalHits = state.snort_rules.reduce((sum, r) => sum + r.hits, 0);
+  
+  let rulesRows = '';
+  state.snort_rules.forEach((rule) => {
+    const statusColor = rule.enabled ? 'var(--green)' : 'var(--text-muted)';
+    const statusText = rule.enabled ? 'ACTIVE' : 'INACTIVE';
+    const hitClass = rule.hits > 0 ? 'rule-hits-active' : '';
+    rulesRows += '<tr style="border-bottom:1px solid rgba(13,61,40,0.5); color:var(--text);">' +
+      '<td style="padding:8px; border-right:1px solid rgba(13,61,40,0.3); color:var(--cyan); font-weight:bold;">' + rule.sid + '</td>' +
+      '<td style="padding:8px; border-right:1px solid rgba(13,61,40,0.3);">' + rule.msg + '</td>' +
+      '<td style="padding:8px; text-align:center; border-right:1px solid rgba(13,61,40,0.3); color:var(--yellow);">' + rule.proto.toUpperCase() + '</td>' +
+      '<td style="padding:8px; text-align:center; border-right:1px solid rgba(13,61,40,0.3);" class="' + hitClass + '">' + rule.hits + '</td>' +
+      '<td style="padding:8px; text-align:center; color:' + statusColor + '; font-weight:bold;">' + statusText + '</td>' +
+    '</tr>';
+  });
+  
+  const rulesHtml = '<div class="rules-detail-container">' +
+    '<h3 style="color:var(--green); margin-bottom:16px; font-size:14px; text-transform:uppercase; letter-spacing:2px;">Shield SNORT IDS RULES</h3>' +
+    '<div class="rules-stats" style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:16px;">' +
+      '<div style="padding:10px; border:1px solid var(--border); background:rgba(0,255,136,0.05); border-radius:4px;">' +
+        '<div style="font-size:11px; color:var(--text-muted); letter-spacing:1px; text-transform:uppercase;">Total Rules</div>' +
+        '<div style="font-size:18px; font-weight:bold; color:var(--green);">' + state.snort_rules.length + '</div>' +
+      '</div>' +
+      '<div style="padding:10px; border:1px solid var(--border); background:rgba(0,255,136,0.05); border-radius:4px;">' +
+        '<div style="font-size:11px; color:var(--text-muted); letter-spacing:1px; text-transform:uppercase;">Enabled</div>' +
+        '<div style="font-size:18px; font-weight:bold; color:var(--green);">' + enabledCount + '</div>' +
+      '</div>' +
+      '<div style="padding:10px; border:1px solid var(--border); background:rgba(0,255,136,0.05); border-radius:4px;">' +
+        '<div style="font-size:11px; color:var(--text-muted); letter-spacing:1px; text-transform:uppercase;">Total Hits</div>' +
+        '<div style="font-size:18px; font-weight:bold; color:var(--cyan);">' + totalHits + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div style="max-height:400px; overflow-y:auto; border:1px solid var(--border); border-radius:4px; padding:8px;">' +
+      '<table style="width:100%; font-size:11px; border-collapse:collapse;">' +
+        '<thead style="position:sticky; top:0; background:rgba(0,0,0,0.6); border-bottom:2px solid var(--border);">' +
+          '<tr style="color:var(--green-dim); font-weight:bold; text-transform:uppercase;">' +
+            '<th style="padding:8px; text-align:left; border-right:1px solid var(--border);">SID</th>' +
+            '<th style="padding:8px; text-align:left; border-right:1px solid var(--border);">MESSAGE</th>' +
+            '<th style="padding:8px; text-align:center; border-right:1px solid var(--border); width:50px;">PROTO</th>' +
+            '<th style="padding:8px; text-align:center; border-right:1px solid var(--border); width:50px;">HITS</th>' +
+            '<th style="padding:8px; text-align:center; width:60px;">STATUS</th>' +
+          '</tr>' +
+        '</thead>' +
+        '<tbody>' + rulesRows + '</tbody>' +
+      '</table>' +
+    '</div>' +
+  '</div>';
+  
+  openModal('📋 Snort Rules Manager', rulesHtml);
+}
 
 initCanvas();
 drawTraffic();
@@ -731,6 +1086,69 @@ addTermLine('info', 'Dashboard initialized. Waiting for IDS telemetry...');
   startRealtimePolling();
   addTermLine('warn', 'Simulation mode is disabled for production-aligned operation.');
 })();
+</script>
+
+<!-- Detail modal -->
+<div id="detail-modal-backdrop" class="modal-backdrop" onclick="closeModal(event)">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" onclick="event.stopPropagation()">
+    <button class="close-btn" onclick="closeModal()">Close</button>
+    <div id="modal-title" class="modal-title">Details</div>
+    <div id="modal-body" class="modal-body"></div>
+  </div>
+</div>
+
+</div><!-- end container -->
+
+<script>
+function openModal(title, html) {
+  const titleEl = document.getElementById('modal-title');
+  const bodyEl = document.getElementById('modal-body');
+  const backdropEl = document.getElementById('detail-modal-backdrop');
+  if (!titleEl || !bodyEl || !backdropEl) return;
+  titleEl.textContent = title;
+  bodyEl.innerHTML = html;
+  backdropEl.classList.add('active');
+}
+function closeModal(e) {
+  if (e && e.target && e.target.id !== 'detail-modal-backdrop') return;
+  const backdropEl = document.getElementById('detail-modal-backdrop');
+  if (backdropEl) backdropEl.classList.remove('active');
+}
+
+function showMetricDetail(key) {
+  const payload = {
+    pps: { title: 'Packets per second', body: 'Live packets per second. Use Filters to tune view.' },
+    bw: { title: 'Bandwidth', body: 'Bandwidth (Mbps) aggregated across hosts. Top active hosts shown on main view.' },
+    threats: { title: 'Threats Detected', body: 'Recent threats detected. Use the Alerts panel to investigate individual events.' },
+    hosts: { title: 'Active Hosts', body: 'Active hosts list with status and risk. Click a host for details.' },
+    rules: { title: 'Rules Matched', body: 'Rules matched by the IDS. This is a rolling counter of rules matched by alerts.' }
+  };
+  const entry = payload[key] || { title: 'Detail', body: 'No details available.' };
+  openModal(entry.title, '<p>' + entry.body + '</p>');
+}
+
+function showAlertDetail(obj) {
+  let alert = obj;
+  if (typeof obj === 'string') {
+    try { alert = JSON.parse(decodeURIComponent(obj)); } catch (e) { alert = { message: obj }; }
+  }
+  const html = '<p><strong>Time:</strong> ' + (alert.time || '') + '</p>' +
+    '<p><strong>Severity:</strong> ' + (alert.severity || '') + '</p>' +
+    '<p><strong>Message:</strong> ' + (alert.message || '') + '</p>' +
+    '<p><strong>Source:</strong> ' + (alert.src || '') + '</p>' +
+    '<p><strong>Destination:</strong> ' + (alert.dst || '') + '</p>';
+  openModal('Alert Details', html);
+}
+
+function showHostDetail(ip) {
+  const host = state.hosts.find(h => h.ip === ip) || { ip: ip };
+  const html = '<p><strong>IP:</strong> ' + (host.ip || '') + '</p>' +
+    '<p><strong>Status:</strong> ' + (host.status || '') + '</p>' +
+    '<p><strong>Risk:</strong> ' + (host.risk || '') + '</p>' +
+    '<p><strong>Events:</strong> ' + (host.events || 0) + '</p>' +
+    '<p><strong>Bytes:</strong> ' + (host.bytes || 0) + '</p>';
+  openModal('Host Details', html);
+}
 </script>
 </body>
 </html>
